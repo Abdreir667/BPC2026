@@ -19,9 +19,11 @@ pub struct Graph{
     zones: Vec<Zone>
 }
 
+
+
 impl Graph {
     
-    pub fn new(reader:&mut BufReader<File>) -> Self {  
+    pub fn new(reader:&mut impl BufRead) -> Self {  
         let mut grid: Vec<Node> = Vec::new();
         let mut zones: Vec<Zone> = Vec::new();
 
@@ -100,12 +102,8 @@ impl Graph {
     }
 }
 
-pub fn read_graph(path: &str) -> Result<(Graph, u8, u16), Box<dyn Error>>  
+pub fn read_graph(reader: &mut impl BufRead) -> Result<(Graph, u8, u16), Box<dyn Error>>  
 {
-    
-    let file = File::open(path)?;
-
-    let mut reader = BufReader::new(file);
 
     let mut line = String::new();
     reader.read_line(&mut line)?;
@@ -119,7 +117,7 @@ pub fn read_graph(path: &str) -> Result<(Graph, u8, u16), Box<dyn Error>>
 
     println!("{plays} {days}");
 
-    let graph = Graph::new(&mut reader);
+    let graph = Graph::new(reader);
 
     
     Ok((graph, plays, days))
