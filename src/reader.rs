@@ -1,6 +1,7 @@
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::error::Error;
+use std::collections::HashSet;
 
 struct Zone {
     component: u16, //ce tip de componenta este
@@ -10,10 +11,10 @@ struct Zone {
 
 struct Node {
     zones: Vec<u16>, //zonele din care face parte un nod
-    neighbours: Vec<u16> //vecinii unui nod
+    neighbours: HashSet<u16> //vecinii unui nod
 }
 
-struct Graph{
+pub struct Graph{
     adj: Vec<Node>, // vector de noduri
     zones: Vec<Zone>
 }
@@ -25,7 +26,7 @@ impl Graph {
         let mut zones: Vec<Zone> = Vec::new();
 
         for _i in 0..54 {
-            grid.push(Node {zones: vec![], neighbours: vec![]});
+            grid.push(Node {zones: vec![], neighbours: HashSet::new()});
         }
 
         for _i in 0..19 {
@@ -42,16 +43,16 @@ impl Graph {
             //ia linia, o imparte in elemente despartite de whitespace-uri (strtok), si pt fiecare chestie o parseaza la u16
     
             //conectam primul nod cu ultimul si ultimul cu primul, nu ar fi mers in for
-            grid[line_values[2] as usize].neighbours.push(line_values[3]);
-            grid[line_values[2] as usize].neighbours.push(line_values[7]);
-            grid[line_values[7] as usize].neighbours.push(line_values[2]);
-            grid[line_values[7] as usize].neighbours.push(line_values[6]);
+            grid[line_values[2] as usize].neighbours.insert(line_values[3]);
+            grid[line_values[2] as usize].neighbours.insert(line_values[7]);
+            grid[line_values[7] as usize].neighbours.insert(line_values[2]);
+            grid[line_values[7] as usize].neighbours.insert(line_values[6]);
             
             for i in 2..=7 {
     
                 if i >=3 && i <=6 {
-                    grid[line_values[i] as usize].neighbours.push(line_values[i + 1]);
-                    grid[line_values[i] as usize].neighbours.push(line_values[i - 1]);
+                    grid[line_values[i] as usize].neighbours.insert(line_values[i + 1]);
+                    grid[line_values[i] as usize].neighbours.insert(line_values[i - 1]);
                 }
                 zones[j].nodes.push(line_values[i]);
                 grid[line_values[i] as usize].zones.push(j as u16); //adaugam si id ul zonei
@@ -69,11 +70,39 @@ impl Graph {
             zones: zones,
         }
     }
+
+    pub fn print(self) {
+
+        let graph = &self;
+        
+        for i in 0..19 {
+            println!("{param1} {param2}", param1=graph.zones[i].component, param2 = graph.zones[i].light);
+            for j in &graph.zones[i as usize].nodes {
+                print!("{j} ");
+            }
+            println!("");
+        }
+    
+        println!("");
+        
+        for i in 0..54 {
+            print!("{i} Neighbours:");
+            for j in &graph.adj[i].neighbours {
+                print!("{j} ");
+            }
+            print!("Zones: ");
+            for j in &graph.adj[i].zones {
+                print!("{j} ");
+            }
+            println!("");
+        }
+        
+    }
 }
 
-fn main() -> Result<(), Box<dyn Error>>  
+pub fn read_graph(path: &str) -> Result<(Graph, u8, u16), Box<dyn Error>>  
 {
-    let path: &str = "/home/radulescuandrei/Facultate/Anul1/BPC2026/public_blueprints/south_01.in";
+    
     let file = File::open(path)?;
 
     let mut reader = BufReader::new(file);
@@ -92,5 +121,6 @@ fn main() -> Result<(), Box<dyn Error>>
 
     let graph = Graph::new(&mut reader);
 
-    Ok(())
+    
+    Ok((graph, plays, days))
 }
