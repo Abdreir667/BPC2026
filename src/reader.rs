@@ -19,7 +19,13 @@ pub struct Graph{
     zones: Vec<Zone>
 }
 
-
+#[derive(Clone)]
+#[derive(Default)]
+pub struct Convertor {
+    conv_type: bool, //0 = 2 la 1, 1 = 3 la 1
+    resource: u8,
+    nodes: Vec<u16>
+}
 
 impl Graph {
     
@@ -102,7 +108,15 @@ impl Graph {
     }
 }
 
-pub fn read_graph(reader: &mut impl BufRead) -> Result<(Graph, u8, u16), Box<dyn Error>>  
+fn parse_int(str: &String) -> u32 {
+    let mut temp: u32 = str.chars().find(|a| a.is_digit(10)).and_then(|a| a.to_digit(10)).unwrap();
+    if temp > 10 {
+        temp /= 10;
+    }
+    temp
+}
+
+pub fn read_graph(reader: &mut impl BufRead) -> Result<(Graph, u8, u16, Vec<Convertor>), Box<dyn Error>>  
 {
 
     let mut line = String::new();
@@ -115,10 +129,40 @@ pub fn read_graph(reader: &mut impl BufRead) -> Result<(Graph, u8, u16), Box<dyn
 
     let days: u16 = line.trim().parse::<u16>()?;
 
-    println!("{plays} {days}");
-
     let graph = Graph::new(reader);
 
+    line.clear();
+
+    let mut convertors: Vec<Convertor> = vec![Default::default(); 6];
+
+    for i in 0..6 {
+        reader.read_line(&mut line)?;
+
+        let conv_type: Vec<String> = line.split_whitespace().map(|value| value.to_string()).collect();
+
+        if conv_type[0].len() == 2 {
+            convertors[i].conv_type = false;
+        } else {
+            convertors[i].conv_type = true;
+        }
+
+        convertors[i].resource = parse_int(&conv_type[0]) as u8;
+
+        let conv_slice = &conv_type[2..];
+        let nodes: Vec<u16> = conv_slice.iter().map(|value| value.parse::<u16>().unwrap()).collect();
+        
+        convertors[i].nodes = nodes;
+
+        // print!("{param1} {param2}\n", param1 = convertors[i].resource, param2 = convertors[i].conv_type);
+        // 
+        // for j in &convertors[i].nodes {
+        //     print!("{j} ");
+        // }
+        // println!("");
+
+        line.clear();
+        
+    }
     
-    Ok((graph, plays, days))
+    Ok((graph, plays, days, convertors))
 }
