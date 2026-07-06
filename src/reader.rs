@@ -2,16 +2,15 @@ use std::io::{BufRead};
 use std::error::Error;
 use std::collections::HashSet;
 
-struct Zone {
+pub struct Zone {
     pub component: u16, //ce tip de componenta este
     pub light: u16,
     pub nodes: Vec<u16> //nodurile care fac parte dintr-o zona
 }
 
-struct Node {
+pub struct Node {
     pub zones: Vec<u16>, //zonele din care face parte un nod
     pub neighbours: HashSet<u16>, //vecinii unui nod
-    pub used: bool,
 }
 
 pub struct Graph{
@@ -34,7 +33,7 @@ impl Graph {
         let mut zones: Vec<Zone> = Vec::new();
 
         for _i in 0..54 {
-            grid.push(Node {zones: vec![], neighbours: HashSet::new(), used: false});
+            grid.push(Node {zones: vec![], neighbours: HashSet::new()});
         }
 
         for _i in 0..19 {

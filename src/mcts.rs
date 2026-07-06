@@ -1,20 +1,26 @@
 use crate::reader::*;
 
-struct Settlement{
-    level: u8,
-    node: u8,
-}
-
 pub struct Board {
-    graph: Graph,
-    convertors: Vec<Convertor>
+    pub graph: Graph,
+    pub convertors: Vec<Convertor>,
+    pub edge_id: [[u8; 54]; 54],
 }
 
+#[derive(Clone, Copy)]
+pub enum Resource {
+    Energy, 
+    Water,
+    Data, 
+    Ram, 
+    Gpu,
+}
+
+#[derive(Clone, Copy)]
 pub enum Move {
-    buildSettlement(u8),
-    upgradeSettlement(u8),
-    buildRoad(u8, u8),
-    endTurn,
+    BuildSettlement(u8),
+    UpgradeSettlement(u8),
+    BuildRoad(u8, u8),
+    EndTurn,
     Trade(u8, u8, u8),
 }
 
@@ -35,6 +41,7 @@ struct DynamicState {
     settlements: [u8; 54],
     roads: [[u8; 2]; 54],
     pub phase: GamePhase,
+    builtRoads: u128,
 }
 
 pub enum GamePhase { 
@@ -47,6 +54,36 @@ pub enum GamePhase {
 
 impl DynamicState {
 
+    pub fn has_road(&self, u: u8, v: u8, board: &Board) -> bool {
+        let edge_id = board.edge_id[u as usize][v as usize];
+        if edge_id == 254 {
+            false
+        } else {
+            self.builtRoads & (1 << edge_id) != 0
+        }
+    }
+
+    pub fn apply_move(&mut self, action: Move, board: &Board) {
+        match action {
+            Move::BuildRoad(u, v) => {
+                let edge_id = board.edge_id[u as usize][v as usize]; 
+                self.builtRoads |= 1 << edge_id;
+            }
+            Move::BuildSettlement(x) => {
+                
+            }
+            Move::UpgradeSettlement(x) => {
+                
+            }
+            Move::Trade(x, y, z) => {
+                
+            }
+            Move::EndTurn => {
+                
+            }
+        }
+    }
+    
     pub fn new(self) -> Self {
         Self {
             turn_number : 0, 
@@ -54,7 +91,8 @@ impl DynamicState {
             resources: [0; 5], 
             settlements: [0; 54], 
             roads: [[0; 2]; 54], 
-            phase: GamePhase::SetupCity1
+            phase: GamePhase::SetupCity1,
+            builtRoads: 0,
         }
     }
     
@@ -74,7 +112,7 @@ impl DynamicState {
                         }
 
                         if valid_distance {
-                            moves.push(Move::buildSettlement(i as u8));
+                            moves.push(Move::BuildSettlement(i as u8));
                         }
                     }
                 }
@@ -82,7 +120,7 @@ impl DynamicState {
             
             GamePhase::SetupRoad1(start_idx) | GamePhase::SetupRoad2(start_idx) => {
                 for i in &board.graph.adj[start_idx as usize].neighbours {
-                    moves.push(Move::buildRoad(start_idx, *i as u8));
+                    moves.push(Move::BuildRoad(start_idx, *i as u8));
                 }
             }
             

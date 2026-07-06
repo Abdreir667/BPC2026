@@ -1,5 +1,4 @@
 mod reader;
-mod solvers;
 mod mcts;
 
 use crate::reader::*;
@@ -30,7 +29,20 @@ fn main(){
         (graph, plays, days, convertors) = read_graph(&mut reader).unwrap();
     }
 
-    let board: Board = Board {settlements: vec![], graph: graph, convertors: convertors};
+    let mut edgeIds = [[255u8 ; 54]; 54];
+    let mut current_idx = 0;
+
+    for i in 0..54usize {
+        for &j in &graph.adj[i].neighbours {
+            if edgeIds[i][j as usize] == 255 {
+                edgeIds[i][j as usize] = current_idx;
+                edgeIds[j as usize][i] = current_idx;
+                current_idx += 1;
+            }
+        }
+    }
+    
+    let board: Board = Board {graph: graph, convertors: convertors, edge_id: edgeIds};
     
 
 }
