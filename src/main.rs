@@ -1,10 +1,13 @@
 mod reader;
+mod solvers;
+mod mcts;
 
 use crate::reader::*;
 use crate::reader::read_graph as read_graph;
-use std::error::Error;
 use std::io::*;
 use std::fs::File;
+use mcts::*;
+
 
 fn main(){
 
@@ -27,6 +30,7 @@ fn main(){
         (graph, plays, days, convertors) = read_graph(&mut reader).unwrap();
     }
 
+    let board: Board = Board {settlements: vec![], graph: graph, convertors: convertors};
     
 
 }

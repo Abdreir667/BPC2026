@@ -1,22 +1,22 @@
-use std::fs::File;
-use std::io::{BufRead, BufReader};
+use std::io::{BufRead};
 use std::error::Error;
 use std::collections::HashSet;
 
 struct Zone {
-    component: u16, //ce tip de componenta este
-    light: u16,
-    nodes: Vec<u16> //nodurile care fac parte dintr-o zona
+    pub component: u16, //ce tip de componenta este
+    pub light: u16,
+    pub nodes: Vec<u16> //nodurile care fac parte dintr-o zona
 }
 
 struct Node {
-    zones: Vec<u16>, //zonele din care face parte un nod
-    neighbours: HashSet<u16> //vecinii unui nod
+    pub zones: Vec<u16>, //zonele din care face parte un nod
+    pub neighbours: HashSet<u16>, //vecinii unui nod
+    pub used: bool,
 }
 
 pub struct Graph{
-    adj: Vec<Node>, // vector de noduri
-    zones: Vec<Zone>
+    pub adj: Vec<Node>, // vector de noduri
+    pub zones: Vec<Zone>
 }
 
 #[derive(Clone)]
@@ -34,7 +34,7 @@ impl Graph {
         let mut zones: Vec<Zone> = Vec::new();
 
         for _i in 0..54 {
-            grid.push(Node {zones: vec![], neighbours: HashSet::new()});
+            grid.push(Node {zones: vec![], neighbours: HashSet::new(), used: false});
         }
 
         for _i in 0..19 {
