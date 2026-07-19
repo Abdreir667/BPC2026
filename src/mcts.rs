@@ -106,26 +106,29 @@ impl DynamicState {
     
     fn find_settlement_nodes(&self, board: &Board, start: u8, used_nodes: &mut u64, moves: &mut Vec<Move>) {
         let mut q: Queue<u8> = queue![];
-        *used_nodes = 0;
 
         add_node(used_nodes, start);
         
         for &i in &board.graph.adj[start as usize].neighbours {
             if self.has_road(start, i as u8, board) {
-                q.add(i as u8);
+                q.add(i as u8).unwrap();
                 add_node(used_nodes, i as u8);
+            } else {
+                moves.push(Move::BuildRoad(start, i as u8));
             }
         }
 
         while q.size() > 0 {
             let top: u8 = q.peek().unwrap();
-            q.remove();
+            q.remove().unwrap();
 
             for &i in &board.graph.adj[top as usize].neighbours {
                 if !used_node(*used_nodes, i as u8) && self.has_road(top, i as u8, board) {
-                    q.add(i as u8);
+                    q.add(i as u8).unwrap();
                     add_node(used_nodes, i as u8);
                     moves.push(Move::BuildSettlement(i as u8));
+                } else if !used_node(*used_nodes, i as u8) && !self.has_road(top, i as u8, board) {
+                    moves.push(Move::BuildRoad(top, i as u8));
                 }
             }
         }
@@ -160,7 +163,8 @@ impl DynamicState {
             }
 
             GamePhase::NormalState => {
-                
+
+                //place settlement and add roads that can be built
                 if self.resources[ENERGY] >= 1 && self.resources[WATER] >= 1 && self.resources[DATA] >=1 && self.resources[RAM] >= 1 {
                     let mut used_nodes = 0;
                     for i in 0..54 {
@@ -170,13 +174,19 @@ impl DynamicState {
                     }
                 }
 
+                //upgrade settlement
                 for i in 0..54 {
                     let lvl = self.settlements[i];
-                    if self.resources[RAM] >= lvl + 1 && self.resources[GPU] >= lvl + 2 {
-                        moves.push(Move::UpgradeSettlement(i as u8));
+                    if lvl >= 1 {
+                        if self.resources[RAM] >= lvl + 1 && self.resources[GPU] >= lvl + 2 {
+                            moves.push(Move::UpgradeSettlement(i as u8));
+                        }
                     }
                 }
-
+                
+                for i in &board.convertors {
+                    
+                }
                 
             }
 
