@@ -104,17 +104,16 @@ impl DynamicState {
         }
     }
     
-    fn find_settlement_nodes(&self, board: &Board, start: u8) -> Vec<u8> {
-        let mut nodes = Vec::new();
+    fn find_settlement_nodes(&self, board: &Board, start: u8, used_nodes: &mut u64, moves: &mut Vec<Move>) {
         let mut q: Queue<u8> = queue![];
-        let mut used_nodes: u64 = 0;
+        *used_nodes = 0;
 
-        add_node(&mut used_nodes, start);
+        add_node(used_nodes, start);
         
         for &i in &board.graph.adj[start as usize].neighbours {
             if self.has_road(start, i as u8, board) {
                 q.add(i as u8);
-                add_node(&mut used_nodes, i as u8);
+                add_node(used_nodes, i as u8);
             }
         }
 
@@ -123,15 +122,13 @@ impl DynamicState {
             q.remove();
 
             for &i in &board.graph.adj[top as usize].neighbours {
-                if !used_node(used_nodes, i as u8) && self.has_road(top, i as u8, board) {
+                if !used_node(*used_nodes, i as u8) && self.has_road(top, i as u8, board) {
                     q.add(i as u8);
-                    add_node(&mut used_nodes, i as u8);
-                    nodes.push(i as u8);
+                    add_node(used_nodes, i as u8);
+                    moves.push(Move::BuildSettlement(i as u8));
                 }
             }
         }
-        
-        nodes
     }
     
     pub fn generate_legal_moves(&self, board: &Board) -> Vec<Move> {
@@ -163,13 +160,24 @@ impl DynamicState {
             }
 
             GamePhase::NormalState => {
+                
                 if self.resources[ENERGY] >= 1 && self.resources[WATER] >= 1 && self.resources[DATA] >=1 && self.resources[RAM] >= 1 {
+                    let mut used_nodes = 0;
                     for i in 0..54 {
-                        if self.settlements[i] > 0 {
-                            
+                        if self.settlements[i] > 0 && used_node(used_nodes, i as u8) {
+                            self.find_settlement_nodes(board, i as u8, &mut used_nodes, &mut moves);
                         }
                     }
                 }
+
+                for i in 0..54 {
+                    let lvl = self.settlements[i];
+                    if self.resources[RAM] >= lvl + 1 && self.resources[GPU] >= lvl + 2 {
+                        moves.push(Move::UpgradeSettlement(i as u8));
+                    }
+                }
+
+                
             }
 
         }
