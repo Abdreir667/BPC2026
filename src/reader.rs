@@ -21,9 +21,9 @@ pub struct Graph{
 #[derive(Clone)]
 #[derive(Default)]
 pub struct Convertor {
-    conv_type: bool, //0 = 2 la 1, 1 = 3 la 1
-    resource: u8,
-    nodes: Vec<u16>
+    pub conv_type: bool, //0 = 2 la 1, 1 = 3 la 1
+    pub resource: u8,
+    pub nodes: Vec<u16>
 }
 
 impl Graph {

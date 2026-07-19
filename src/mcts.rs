@@ -20,7 +20,7 @@ pub enum Move {
     UpgradeSettlement(u8),
     BuildRoad(u8, u8),
     EndTurn,
-    Trade(u8, u8, u8),
+    Trade(u8, u8, u8), //dam trade la x carduri din resursa 1 pt un card resursa 2
 }
 
 #[derive(Clone)]
@@ -185,8 +185,25 @@ impl DynamicState {
                 }
                 
                 for i in &board.convertors {
-                    
+                    let needed_resource = if i.conv_type { 2 } else { 3 };
+                    if self.resources[i.resource as usize] >= needed_resource {
+                        for j in 0..5 {
+                            if j != i.resource {
+                                moves.push(Move::Trade(needed_resource, i.resource, j));
+                            }
+                        }
+                    }
                 }
+
+                for i in 0..5 {
+                    if self.resources[i] >= 4 {
+                        for j in 0..5 {
+                            if i != j { moves.push(Move::Trade(4, i as u8, j as u8));}
+                        }
+                    }
+                }
+
+                moves.push(Move::EndTurn);
                 
             }
 
