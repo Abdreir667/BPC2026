@@ -1,18 +1,17 @@
 use crate::reader::*;
 
+use queues::*;
+
+pub const ENERGY: usize = 0;
+pub const WATER: usize = 1;
+pub const DATA: usize = 2;
+pub const RAM: usize = 3;
+pub const GPU: usize = 4;
+
 pub struct Board {
     pub graph: Graph,
     pub convertors: Vec<Convertor>,
     pub edge_id: [[u8; 54]; 54],
-}
-
-#[derive(Clone, Copy)]
-pub enum Resource {
-    Energy, 
-    Water,
-    Data, 
-    Ram, 
-    Gpu,
 }
 
 #[derive(Clone, Copy)]
@@ -24,32 +23,41 @@ pub enum Move {
     Trade(u8, u8, u8),
 }
 
+#[derive(Clone)]
 struct Node {
     visits: u32,
     current_score: f64,
 
     untriedActions: Vec<Move>,
-    
+
     parent: Option<usize>,
     children: Vec<usize>
 }
 
-struct DynamicState { 
+struct DynamicState {
     turn_number: u8,
-    points: u8, 
+    points: u8,
     resources: [u8; 5],
     settlements: [u8; 54],
     roads: [[u8; 2]; 54],
     pub phase: GamePhase,
-    builtRoads: u128,
+    built_roads: u128,
 }
 
-pub enum GamePhase { 
-    SetupCity1, 
-    SetupRoad1(u8), 
-    SetupCity2, 
+pub enum GamePhase {
+    SetupCity1,
+    SetupRoad1(u8),
+    SetupCity2,
     SetupRoad2(u8),
     NormalState,
+}
+
+fn add_node(nodes: &mut u64, node: u8) {
+    *nodes = *nodes | (1 << node);
+}
+
+fn used_node(nodes: u64, node: u8) -> bool {
+    nodes & (1 << node) == 1
 }
 
 impl DynamicState {
@@ -59,46 +67,76 @@ impl DynamicState {
         if edge_id == 254 {
             false
         } else {
-            self.builtRoads & (1 << edge_id) != 0
+            self.built_roads & (1 << edge_id) != 0
         }
     }
 
     pub fn apply_move(&mut self, action: Move, board: &Board) {
         match action {
             Move::BuildRoad(u, v) => {
-                let edge_id = board.edge_id[u as usize][v as usize]; 
-                self.builtRoads |= 1 << edge_id;
+                let edge_id = board.edge_id[u as usize][v as usize];
+                self.built_roads |= 1 << edge_id;
             }
             Move::BuildSettlement(x) => {
-                
+
             }
             Move::UpgradeSettlement(x) => {
-                
+
             }
             Move::Trade(x, y, z) => {
-                
+
             }
             Move::EndTurn => {
-                
+
             }
         }
     }
-    
+
     pub fn new(self) -> Self {
         Self {
-            turn_number : 0, 
-            points: 0, 
-            resources: [0; 5], 
-            settlements: [0; 54], 
-            roads: [[0; 2]; 54], 
+            turn_number : 0,
+            points: 0,
+            resources: [0; 5],
+            settlements: [0; 54],
+            roads: [[0; 2]; 54],
             phase: GamePhase::SetupCity1,
-            builtRoads: 0,
+            built_roads: 0,
         }
+    }
+    
+    fn find_settlement_nodes(&self, board: &Board, start: u8) -> Vec<u8> {
+        let mut nodes = Vec::new();
+        let mut q: Queue<u8> = queue![];
+        let mut used_nodes: u64 = 0;
+
+        add_node(&mut used_nodes, start);
+        
+        for &i in &board.graph.adj[start as usize].neighbours {
+            if self.has_road(start, i as u8, board) {
+                q.add(i as u8);
+                add_node(&mut used_nodes, i as u8);
+            }
+        }
+
+        while q.size() > 0 {
+            let top: u8 = q.peek().unwrap();
+            q.remove();
+
+            for &i in &board.graph.adj[top as usize].neighbours {
+                if !used_node(used_nodes, i as u8) && self.has_road(top, i as u8, board) {
+                    q.add(i as u8);
+                    add_node(&mut used_nodes, i as u8);
+                    nodes.push(i as u8);
+                }
+            }
+        }
+        
+        nodes
     }
     
     pub fn generate_legal_moves(&self, board: &Board) -> Vec<Move> {
         let mut moves = vec![];
-        
+
         match self.phase {
             GamePhase::SetupCity1 | GamePhase::SetupCity2 => {
                 for i in 0..54 {
@@ -117,30 +155,36 @@ impl DynamicState {
                     }
                 }
             }
-            
+
             GamePhase::SetupRoad1(start_idx) | GamePhase::SetupRoad2(start_idx) => {
                 for i in &board.graph.adj[start_idx as usize].neighbours {
                     moves.push(Move::BuildRoad(start_idx, *i as u8));
                 }
             }
-            
+
             GamePhase::NormalState => {
-                
+                if self.resources[ENERGY] >= 1 && self.resources[WATER] >= 1 && self.resources[DATA] >=1 && self.resources[RAM] >= 1 {
+                    for i in 0..54 {
+                        if self.settlements[i] > 0 {
+                            
+                        }
+                    }
+                }
             }
-            
+
         }
-        
+
         moves
     }
 }
 
 impl Node {
-    
+
     pub fn new(state: DynamicState, board: &Board) -> Self {
         Self {
-            visits: 0, 
+            visits: 0,
             current_score: 0.0,
-            parent: None, 
+            parent: None,
             untriedActions: state.generate_legal_moves(board),
             children: Vec::new(),
         }
@@ -167,5 +211,5 @@ impl MCTSearch {
     }
 
     // pub fn simulate(root_node: Node, )
-    
+
 }
