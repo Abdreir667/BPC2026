@@ -76,18 +76,28 @@ impl DynamicState {
             Move::BuildRoad(u, v) => {
                 let edge_id = board.edge_id[u as usize][v as usize];
                 self.built_roads |= 1 << edge_id;
+                self.resources[ENERGY] -= 1;
+                self.resources[WATER] -=1;
             }
             Move::BuildSettlement(x) => {
-
+                self.settlements[x as usize] = 1;
+                self.resources[ENERGY] -= 1;
+                self.resources[WATER] -=1;
+                self.resources[DATA] -= 1;
+                self.resources[RAM] -=1;
             }
             Move::UpgradeSettlement(x) => {
-
+                let level = self.settlements[x as usize];
+                self.settlements[x as usize] += 1;
+                self.resources[RAM] -= level + 1;
+                self.resources[GPU] -= level + 2;
             }
             Move::Trade(x, y, z) => {
-
+                self.resources[y as usize] -= x;
+                self.resources[z as usize] += 1;
             }
             Move::EndTurn => {
-
+                self.turn_number += 1;
             }
         }
     }
@@ -165,7 +175,7 @@ impl DynamicState {
             GamePhase::NormalState => {
 
                 //place settlement and add roads that can be built
-                if self.resources[ENERGY] >= 1 && self.resources[WATER] >= 1 && self.resources[DATA] >=1 && self.resources[RAM] >= 1 {
+                if self.resources[ENERGY] >= 1 && self.resources[WATER] >= 1 || (self.resources[DATA] >=1 && self.resources[RAM] >= 1 && self.resources[ENERGY] >= 1 && self.resources[WATER] >= 1){
                     let mut used_nodes = 0;
                     for i in 0..54 {
                         if self.settlements[i] > 0 && used_node(used_nodes, i as u8) {
