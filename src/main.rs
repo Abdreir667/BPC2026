@@ -6,6 +6,8 @@ use crate::reader::read_graph as read_graph;
 use std::io::*;
 use std::fs::File;
 use mcts::*;
+use std::time::Instant;
+use rayon::prelude::*;
 
 fn main(){
 
@@ -43,8 +45,22 @@ fn main(){
     }
 
     // graph.print();
+    
     let board: Board = Board {graph: graph, convertors: convertors, edge_id: edgeIds, turns: days_vector};
     let start_state = DynamicState::new();
 
-    simulate_random_game(start_state, &board);
+    let start_time = Instant::now();
+
+    let total_points: u64 = (0..1_000_000)
+        .into_par_iter()
+        .map(|_| {simulate_random_game(start_state, &board) as u64})
+        .sum();
+
+    let fin = start_time.elapsed();
+
+    println!("Average: {}", total_points as f64 / 1_000_000.0);
+
+    println!("Total time: {:?}", fin); // Default format (e.g., 2.34ms)
+    println!("Time in milliseconds: {} ms", fin.as_millis());
+    println!("Time in microseconds: {} µs", fin.as_micros());
 }

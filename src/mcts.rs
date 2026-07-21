@@ -28,10 +28,10 @@ impl Move {
     pub fn weight(&self) -> u32 {
         match self {
             Move::UpgradeSettlement(_) => 100, 
-            Move::BuildSettlement(_) => 80,
+            Move::BuildSettlement(_) => 95,
             Move::BuildRoad(_, _) => 30,
             Move::EndTurn => 10,
-            Move::Trade(_, _, _) => 2,
+            Move::Trade(_, _, _) => 0,
         }
     }
 }
@@ -47,6 +47,7 @@ struct Node {
     children: Vec<usize>
 }
 
+#[derive(Clone, Copy)]
 pub struct DynamicState {
     turn_number: u8,
     points: u16,
@@ -56,6 +57,7 @@ pub struct DynamicState {
     built_roads: u128,
 }
 
+#[derive(Clone, Copy)]
 pub enum GamePhase {
     SetupCity1,
     SetupRoad1(u8),
@@ -327,23 +329,23 @@ pub fn simulate_random_game(mut state: DynamicState, board: &Board) -> u16 {
             }
         }
 
-        println!("{} {}", legal_moves.len(), state.turn_number);
+        // println!("{} {}", legal_moves.len(), state.turn_number);
 
 
-        match chosen_move {
-            Move::EndTurn => { 
-                println!("Ended turn {}", state.turn_number);
-                println!("Resources: ENERGY: {} WATER : {} DATA : {} RAM : {} GPU : {} ", state.resources[0], state.resources[1], state.resources[2], state.resources[3], state.resources[4]);
-            }
-            Move::BuildRoad(x, y) => {println!("Built a road at {x} {y}");}
-            Move::Trade(x, y, z) => {println!("Traded {x} cards from resource {y} for resource {z}");}
-            Move::UpgradeSettlement(x) => {println!("Upgraded settlement {x}");}
-            Move::BuildSettlement(x) => {println!("Built settlement {x}");}
-        }
+        // match chosen_move {
+        //     Move::EndTurn => { 
+        //         println!("Ended turn {}", state.turn_number);
+        //         println!("Resources: ENERGY: {} WATER : {} DATA : {} RAM : {} GPU : {} ", state.resources[0], state.resources[1], state.resources[2], state.resources[3], state.resources[4]);
+        //     }
+        //     Move::BuildRoad(x, y) => {println!("Built a road at {x} {y}");}
+        //     Move::Trade(x, y, z) => {println!("Traded {x} cards from resource {y} for resource {z}");}
+        //     Move::UpgradeSettlement(x) => {println!("Upgraded settlement {x}");}
+        //     Move::BuildSettlement(x) => {println!("Built settlement {x}");}
+        // }
     }
 
     let points = state.get_points();
-    println!("{points}");
+    // println!("{points}");
     points
 }
 
