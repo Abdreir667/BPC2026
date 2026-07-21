@@ -24,6 +24,18 @@ pub enum Move {
     Trade(u8, u8, u8), //dam trade la x carduri din resursa 1 pt un card resursa 2
 }
 
+impl Move {
+    pub fn weight(&self) -> u32 {
+        match self {
+            Move::UpgradeSettlement(_) => 100, 
+            Move::BuildSettlement(_) => 80,
+            Move::BuildRoad(_, _) => 30,
+            Move::EndTurn => 10,
+            Move::Trade(_, _, _) => 2,
+        }
+    }
+}
+
 #[derive(Clone)]
 struct Node {
     visits: u32,
@@ -35,9 +47,9 @@ struct Node {
     children: Vec<usize>
 }
 
-struct DynamicState {
+pub struct DynamicState {
     turn_number: u8,
-    points: u8,
+    points: u16,
     resources: [u8; 5],
     settlements: [u8; 54],
     pub phase: GamePhase,
@@ -71,48 +83,83 @@ impl DynamicState {
         }
     }
 
-    pub fn apply_move(&mut self, action: Move, board: &Board) {
+    pub fn apply_move(&mut self, action: Move, board: &Board, start_turn: bool) {
         match action {
             Move::BuildRoad(u, v) => {
                 let edge_id = board.edge_id[u as usize][v as usize];
                 self.built_roads |= 1 << edge_id;
-                self.resources[ENERGY] -= 1;
-                self.resources[WATER] -=1;
+                if !start_turn {
+                    self.resources[ENERGY] -= 1;
+                    self.resources[WATER] -=1;
+                }
+                
+                match self.phase {
+                    GamePhase::SetupRoad1(_) => self.phase = GamePhase::SetupCity2,
+                    GamePhase::SetupRoad2(_) => self.phase = GamePhase::NormalState,
+                    _ => {}
+                }
+                
             }
             Move::BuildSettlement(x) => {
                 self.settlements[x as usize] = 1;
-                self.resources[ENERGY] -= 1;
-                self.resources[WATER] -=1;
-                self.resources[DATA] -= 1;
-                self.resources[RAM] -=1;
+                if !start_turn {
+                    self.resources[ENERGY] -= 1;
+                    self.resources[WATER] -=1;
+                    self.resources[DATA] -= 1;
+                    self.resources[RAM] -=1;
+                }
+                self.points += 1;
+
+                match self.phase { 
+                    GamePhase::SetupCity1 => self.phase = GamePhase::SetupRoad1(x),
+                    GamePhase::SetupCity2 => {
+                        self.phase = GamePhase::SetupRoad2(x);
+                        self.resources[ENERGY] += 2;
+                        self.resources[WATER] += 2;
+                        self.resources[DATA] += 2;
+                        self.resources[RAM] += 2;
+                    }
+                    _ => {}
+                }
             }
             Move::UpgradeSettlement(x) => {
                 let level = self.settlements[x as usize];
                 self.settlements[x as usize] += 1;
                 self.resources[RAM] -= level + 1;
                 self.resources[GPU] -= level + 2;
+                self.points += 1;
             }
             Move::Trade(x, y, z) => {
                 self.resources[y as usize] -= x;
                 self.resources[z as usize] += 1;
             }
             Move::EndTurn => {
+                
                 self.turn_number += 1;
 
-                let next_roll = board.turns[self.turn_number as usize];
-
-                for &(node_id, resource) in &board.graph.zones[next_roll as usize] {
-                    let lvl = self.settlements[node_id as usize];
-
-                    if lvl > 0 {
-                        self.resources[resource as usize] += lvl;
+                if (self.turn_number as usize) < board.turns.len() {
+                    let next_roll = board.turns[self.turn_number as usize];
+                    
+                    for &(node_id, resource) in &board.graph.zones[next_roll as usize] {
+                        let lvl = self.settlements[node_id as usize];
+                        if lvl > 0 {
+                            self.resources[resource as usize] += lvl;
+                        }
                     }
                 }
             }
         }
     }
 
-    pub fn new(self) -> Self {
+    pub fn get_points(&self) -> u16 {
+        self.points
+    }
+    
+    pub fn is_game_over(&self, board: &Board) -> bool {
+        (self.turn_number as usize) >= board.turns.len()
+    }
+
+    pub fn new() -> Self {
         Self {
             turn_number : 0,
             points: 0,
@@ -161,14 +208,12 @@ impl DynamicState {
     
             for &i in &board.graph.adj[top as usize].neighbours {
                 if !used_node(*used_nodes, i as u8) && self.has_road(top, i as u8, board) {
-                    if self.resources[DATA] >=1 && self.resources[RAM] >= 1 && self.resources[ENERGY] >= 1 && self.resources[WATER] >= 1 {
                         q.add(i as u8).unwrap();
                         add_node(used_nodes, i as u8);
-                        
-                        if self.valid_settlement_spot(board, i as u8) {
+
+                        if self.valid_settlement_spot(board, i as u8) && (self.resources[DATA] >=1 && self.resources[RAM] >= 1 && self.resources[ENERGY] >= 1 && self.resources[WATER] >= 1) {
                             moves.push(Move::BuildSettlement(i as u8));
                         }
-                    }
                 } else if !used_node(*used_nodes, i as u8) && !self.has_road(top, i as u8, board) {
                     moves.push(Move::BuildRoad(top, i as u8));
                 }
@@ -246,6 +291,60 @@ impl DynamicState {
 
         moves
     }
+}
+
+pub fn simulate_random_game(mut state: DynamicState, board: &Board) -> u16 {
+
+    while !state.is_game_over(board) {
+        let legal_moves = state.generate_legal_moves(board);
+
+        if legal_moves.is_empty() {
+            break;
+        }
+
+        let total_weight: u32 = legal_moves.iter().map(|m| m.weight()).sum();
+
+        let mut rand_val = fastrand::u32(0..total_weight);
+        let mut chosen_move = legal_moves[0];
+
+        for current_move in &legal_moves {
+            let move_weight = current_move.weight();
+                    
+            if rand_val < move_weight {
+                chosen_move = *current_move;
+                break;
+            }
+                    
+            rand_val -= move_weight;
+        }
+
+        match state.phase {
+            GamePhase::NormalState => {
+                state.apply_move(chosen_move, board, false);
+            }
+            _ => {
+                state.apply_move(chosen_move, board, true);
+            }
+        }
+
+        println!("{} {}", legal_moves.len(), state.turn_number);
+
+
+        match chosen_move {
+            Move::EndTurn => { 
+                println!("Ended turn {}", state.turn_number);
+                println!("Resources: ENERGY: {} WATER : {} DATA : {} RAM : {} GPU : {} ", state.resources[0], state.resources[1], state.resources[2], state.resources[3], state.resources[4]);
+            }
+            Move::BuildRoad(x, y) => {println!("Built a road at {x} {y}");}
+            Move::Trade(x, y, z) => {println!("Traded {x} cards from resource {y} for resource {z}");}
+            Move::UpgradeSettlement(x) => {println!("Upgraded settlement {x}");}
+            Move::BuildSettlement(x) => {println!("Built settlement {x}");}
+        }
+    }
+
+    let points = state.get_points();
+    println!("{points}");
+    points
 }
 
 impl Node {

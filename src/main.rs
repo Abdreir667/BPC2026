@@ -7,8 +7,6 @@ use std::io::*;
 use std::fs::File;
 use mcts::*;
 
-
-
 fn main(){
 
     let graph: Graph;
@@ -44,8 +42,9 @@ fn main(){
         }
     }
 
-    graph.print();
-    // let board: Board = Board {graph: graph, convertors: convertors, edge_id: edgeIds, turns: days_vector};
-    
+    // graph.print();
+    let board: Board = Board {graph: graph, convertors: convertors, edge_id: edgeIds, turns: days_vector};
+    let start_state = DynamicState::new();
 
+    simulate_random_game(start_state, &board);
 }
