@@ -2,20 +2,14 @@ use std::io::{BufRead};
 use std::error::Error;
 use std::collections::HashSet;
 
-pub struct Zone {
-    pub component: u16, //ce tip de componenta este
-    pub light: u16,
-    pub nodes: Vec<u16> //nodurile care fac parte dintr-o zona
-}
-
 pub struct Node {
-    pub zones: Vec<u16>, //zonele din care face parte un nod
     pub neighbours: HashSet<u16>, //vecinii unui nod
 }
 
 pub struct Graph{
     pub adj: Vec<Node>, // vector de noduri
-    pub zones: Vec<Zone>
+    pub zones: Vec<Vec<(u8, u8)>>, // mat[0] contine zonele care au activarea 0
+    // prima var din fiecare field = id ul nodului, a doua este resursa
 }
 
 #[derive(Clone)]
@@ -30,18 +24,17 @@ impl Graph {
     
     pub fn new(reader:&mut impl BufRead) -> Self {  
         let mut grid: Vec<Node> = Vec::new();
-        let mut zones: Vec<Zone> = Vec::new();
+        let mut zones: Vec<Vec<(u8, u8)>> = Vec::new();
 
         for _i in 0..54 {
-            grid.push(Node {zones: vec![], neighbours: HashSet::new()});
+            grid.push(Node {neighbours: HashSet::new()});
         }
 
-        for _i in 0..19 {
-            zones.push(Zone {component: 0, light: 0,  nodes: vec![]});
+        for _i in 0..=12 {
+            zones.push(Vec::new());
         }
 
-
-        for j in 0..19 {
+        for _j in 0..19 {
             
             let mut line: String = String::new();
             reader.read_line(&mut line).unwrap();
@@ -61,12 +54,13 @@ impl Graph {
                     grid[line_values[i] as usize].neighbours.insert(line_values[i + 1]);
                     grid[line_values[i] as usize].neighbours.insert(line_values[i - 1]);
                 }
-                zones[j].nodes.push(line_values[i]);
-                grid[line_values[i] as usize].zones.push(j as u16); //adaugam si id ul zonei
+                // zones[j].nodes.push(line_values[i]);
+                zones[line_values[1] as usize].push((line_values[i] as u8, line_values[0] as u8));
+                // grid[line_values[i] as usize].zones.push(j as u16); //adaugam si id ul zonei
             }
     
-            zones[j].component = line_values[0];
-            zones[j].light = line_values[1];
+            // zones[j].component = line_values[0];
+            // zones[j].light = line_values[1];
 
             line.clear();
         }
@@ -82,12 +76,13 @@ impl Graph {
 
         let graph = &self;
         
-        for i in 0..19 {
-            println!("{param1} {param2}", param1=graph.zones[i].component, param2 = graph.zones[i].light);
-            for j in &graph.zones[i as usize].nodes {
-                print!("{j} ");
+        for i in 0..12 {
+            println!("{i}");
+            for j in &graph.zones[i] {
+                print!("{a} {b}, ", a = j.0, b = j.1)
             }
             println!("");
+            
         }
     
         println!("");
@@ -95,10 +90,6 @@ impl Graph {
         for i in 0..54 {
             print!("{i} Neighbours:");
             for j in &graph.adj[i].neighbours {
-                print!("{j} ");
-            }
-            print!("Zones: ");
-            for j in &graph.adj[i].zones {
                 print!("{j} ");
             }
             println!("");
@@ -115,7 +106,7 @@ fn parse_int(str: &String) -> u32 {
     temp
 }
 
-pub fn read_graph(reader: &mut impl BufRead) -> Result<(Graph, u8, u16, Vec<Convertor>), Box<dyn Error>>  
+pub fn read_graph(reader: &mut impl BufRead) -> Result<(Graph, u8, u16, Vec<Convertor>, Vec<u8>), Box<dyn Error>>  
 {
 
     let mut line = String::new();
@@ -162,6 +153,10 @@ pub fn read_graph(reader: &mut impl BufRead) -> Result<(Graph, u8, u16, Vec<Conv
         line.clear();
         
     }
+
+    reader.read_line(&mut line)?;
+
+    let days_vec: Vec<u8> = line.split_whitespace().map(|day| day.parse::<u8>().unwrap()).collect();
     
-    Ok((graph, plays, days, convertors))
+    Ok((graph, plays, days, convertors, days_vec))
 }

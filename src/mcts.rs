@@ -12,6 +12,7 @@ pub struct Board {
     pub graph: Graph,
     pub convertors: Vec<Convertor>,
     pub edge_id: [[u8; 54]; 54],
+    pub turns: Vec<u8>,
 }
 
 #[derive(Clone, Copy)]
@@ -28,7 +29,7 @@ struct Node {
     visits: u32,
     current_score: f64,
 
-    untriedActions: Vec<Move>,
+    untried_actions: Vec<Move>,
 
     parent: Option<usize>,
     children: Vec<usize>
@@ -39,7 +40,6 @@ struct DynamicState {
     points: u8,
     resources: [u8; 5],
     settlements: [u8; 54],
-    roads: [[u8; 2]; 54],
     pub phase: GamePhase,
     built_roads: u128,
 }
@@ -57,7 +57,7 @@ fn add_node(nodes: &mut u64, node: u8) {
 }
 
 fn used_node(nodes: u64, node: u8) -> bool {
-    nodes & (1 << node) == 1
+    nodes & (1 << node) != 0
 }
 
 impl DynamicState {
@@ -98,6 +98,16 @@ impl DynamicState {
             }
             Move::EndTurn => {
                 self.turn_number += 1;
+
+                let next_roll = board.turns[self.turn_number as usize];
+
+                for &(node_id, resource) in &board.graph.zones[next_roll as usize] {
+                    let lvl = self.settlements[node_id as usize];
+
+                    if lvl > 0 {
+                        self.resources[resource as usize] += lvl;
+                    }
+                }
             }
         }
     }
@@ -108,35 +118,57 @@ impl DynamicState {
             points: 0,
             resources: [0; 5],
             settlements: [0; 54],
-            roads: [[0; 2]; 54],
             phase: GamePhase::SetupCity1,
             built_roads: 0,
         }
     }
+
+    pub fn valid_settlement_spot(&self, board: &Board, start: u8) -> bool {
+        if self.settlements[start as usize] > 0 {
+            return false;
+        }
+        
+        for &neigh in &board.graph.adj[start as usize].neighbours {
+            if self.settlements[neigh as usize] > 0 {
+                return false;
+            }
+        }
+
+        return true;
+    }
     
     fn find_settlement_nodes(&self, board: &Board, start: u8, used_nodes: &mut u64, moves: &mut Vec<Move>) {
         let mut q: Queue<u8> = queue![];
-
+    
         add_node(used_nodes, start);
         
         for &i in &board.graph.adj[start as usize].neighbours {
             if self.has_road(start, i as u8, board) {
                 q.add(i as u8).unwrap();
                 add_node(used_nodes, i as u8);
+                
+                if self.valid_settlement_spot(board, i as u8) {
+                    moves.push(Move::BuildSettlement(i as u8));
+                }
             } else {
                 moves.push(Move::BuildRoad(start, i as u8));
             }
         }
-
+    
         while q.size() > 0 {
             let top: u8 = q.peek().unwrap();
             q.remove().unwrap();
-
+    
             for &i in &board.graph.adj[top as usize].neighbours {
                 if !used_node(*used_nodes, i as u8) && self.has_road(top, i as u8, board) {
-                    q.add(i as u8).unwrap();
-                    add_node(used_nodes, i as u8);
-                    moves.push(Move::BuildSettlement(i as u8));
+                    if self.resources[DATA] >=1 && self.resources[RAM] >= 1 && self.resources[ENERGY] >= 1 && self.resources[WATER] >= 1 {
+                        q.add(i as u8).unwrap();
+                        add_node(used_nodes, i as u8);
+                        
+                        if self.valid_settlement_spot(board, i as u8) {
+                            moves.push(Move::BuildSettlement(i as u8));
+                        }
+                    }
                 } else if !used_node(*used_nodes, i as u8) && !self.has_road(top, i as u8, board) {
                     moves.push(Move::BuildRoad(top, i as u8));
                 }
@@ -151,15 +183,8 @@ impl DynamicState {
             GamePhase::SetupCity1 | GamePhase::SetupCity2 => {
                 for i in 0..54 {
                     if self.settlements[i] == 0 {
-                        let mut valid_distance = true;
-                        for &neigh in &board.graph.adj[i].neighbours {
-                            if self.settlements[neigh as usize] > 0 {
-                                valid_distance = false;
-                                break;
-                            }
-                        }
 
-                        if valid_distance {
+                        if self.valid_settlement_spot(board, i as u8) {
                             moves.push(Move::BuildSettlement(i as u8));
                         }
                     }
@@ -178,7 +203,7 @@ impl DynamicState {
                 if self.resources[ENERGY] >= 1 && self.resources[WATER] >= 1 || (self.resources[DATA] >=1 && self.resources[RAM] >= 1 && self.resources[ENERGY] >= 1 && self.resources[WATER] >= 1){
                     let mut used_nodes = 0;
                     for i in 0..54 {
-                        if self.settlements[i] > 0 && used_node(used_nodes, i as u8) {
+                        if self.settlements[i] > 0 && !used_node(used_nodes, i as u8) {
                             self.find_settlement_nodes(board, i as u8, &mut used_nodes, &mut moves);
                         }
                     }
@@ -230,7 +255,7 @@ impl Node {
             visits: 0,
             current_score: 0.0,
             parent: None,
-            untriedActions: state.generate_legal_moves(board),
+            untried_actions: state.generate_legal_moves(board),
             children: Vec::new(),
         }
     }
