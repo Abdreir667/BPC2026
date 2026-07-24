@@ -60,7 +60,7 @@ fn main(){
 
     println!("Average: {}", total_points as f64 / 1_000_000.0);
 
-    println!("Total time: {:?}", fin); // Default format (e.g., 2.34ms)
+    println!("Total time: {:?}", fin);
     println!("Time in milliseconds: {} ms", fin.as_millis());
     println!("Time in microseconds: {} µs", fin.as_micros());
 }

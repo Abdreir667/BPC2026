@@ -36,22 +36,11 @@ impl Move {
     }
 }
 
-#[derive(Clone)]
-struct Node {
-    visits: u32,
-    current_score: f64,
-
-    untried_actions: Vec<Move>,
-
-    parent: Option<usize>,
-    children: Vec<usize>
-}
-
 #[derive(Clone, Copy)]
 pub struct DynamicState {
     turn_number: u8,
     points: u16,
-    resources: [u8; 5],
+    resources: [u16; 5],
     settlements: [u8; 54],
     pub phase: GamePhase,
     built_roads: u128,
@@ -125,14 +114,14 @@ impl DynamicState {
                 }
             }
             Move::UpgradeSettlement(x) => {
-                let level = self.settlements[x as usize];
+                let level = self.settlements[x as usize] as u16;
                 self.settlements[x as usize] += 1;
                 self.resources[RAM] -= level + 1;
                 self.resources[GPU] -= level + 2;
                 self.points += 1;
             }
             Move::Trade(x, y, z) => {
-                self.resources[y as usize] -= x;
+                self.resources[y as usize] -= x as u16;
                 self.resources[z as usize] += 1;
             }
             Move::EndTurn => {
@@ -143,7 +132,7 @@ impl DynamicState {
                     let next_roll = board.turns[self.turn_number as usize];
                     
                     for &(node_id, resource) in &board.graph.zones[next_roll as usize] {
-                        let lvl = self.settlements[node_id as usize];
+                        let lvl = self.settlements[node_id as usize] as u16;
                         if lvl > 0 {
                             self.resources[resource as usize] += lvl;
                         }
@@ -258,7 +247,7 @@ impl DynamicState {
 
                 //upgrade settlement
                 for i in 0..54 {
-                    let lvl = self.settlements[i];
+                    let lvl = self.settlements[i] as u16;
                     if lvl >= 1 {
                         if self.resources[RAM] >= lvl + 1 && self.resources[GPU] >= lvl + 2 {
                             moves.push(Move::UpgradeSettlement(i as u8));
@@ -267,8 +256,8 @@ impl DynamicState {
                 }
                 
                 for i in &board.convertors {
-                    let needed_resource = if i.conv_type { 2 } else { 3 };
-                    if self.resources[i.resource as usize] >= needed_resource {
+                    let needed_resource: u8 = if i.conv_type { 2 } else { 3 };
+                    if self.resources[i.resource as usize] >= needed_resource as u16 {
                         for j in 0..5 {
                             if j != i.resource {
                                 moves.push(Move::Trade(needed_resource, i.resource, j));
@@ -349,15 +338,28 @@ pub fn simulate_random_game(mut state: DynamicState, board: &Board) -> u16 {
     points
 }
 
+#[derive(Clone)]
+struct Node {
+    visits: u32,
+    current_score: f64,
+
+    untried_actions: Vec<Move>,
+
+    parent: Option<usize>,
+    children: Vec<usize>,
+    previous_move: Option<Move>
+}
+
 impl Node {
 
-    pub fn new(state: DynamicState, board: &Board) -> Self {
+    pub fn new(state: &DynamicState, board: &Board, previous_move: Option<Move>) -> Self {
         Self {
             visits: 0,
             current_score: 0.0,
             parent: None,
             untried_actions: state.generate_legal_moves(board),
             children: Vec::new(),
+            previous_move: previous_move
         }
     }
 
@@ -381,6 +383,32 @@ impl MCTSearch {
         self.nodes[parent_idx].children.push(child_idx);
     }
 
-    // pub fn simulate(root_node: Node, )
+    pub fn get_best_move(&self, node_idx: usize, c: f64) -> usize {
+        let node = &self.nodes[node_idx];
+        let mut max_score = f64::NEG_INFINITY;
+        let mut max_idx = 0;
+
+        for &child_idx in &node.children {
+            let child = &self.nodes[child_idx];
+
+            if child.visits == 0 {
+                return child_idx;
+            }
+
+            let exploit = child.current_score / (child.visits as f64);
+            let explore = ((node.visits as f64).ln() / (child.visits as f64)).sqrt();
+
+            let score = exploit + c * explore;
+
+            if score > max_score {
+                max_score = score;
+                max_idx = child_idx;
+            }
+        }
+
+        max_idx
+    }
+
+    
 
 }

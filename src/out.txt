@@ -1,4 +1,4 @@
-Average: 8.180596
-Total time: 4.135669945s
-Time in milliseconds: 4135 ms
-Time in microseconds: 4135669 µs
+Average: 8.186373
+Total time: 4.366775625s
+Time in milliseconds: 4366 ms
+Time in microseconds: 4366775 µs
