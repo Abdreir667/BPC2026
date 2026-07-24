@@ -365,14 +365,14 @@ impl Node {
 
 }
 
-struct MCTSearch {
+pub struct MCTSearch {
     nodes: Vec<Node>,
 }
 
 impl MCTSearch {
-    pub fn new(root_node: Node) -> Self {
+    pub fn new(root_state: &DynamicState, board: &Board) -> Self {
         Self {
-            nodes: vec![root_node],
+            nodes: vec![Node::new(root_state, board, None)]
         }
     }
 
@@ -409,6 +409,62 @@ impl MCTSearch {
         max_idx
     }
 
-    
+    pub fn search(&mut self, root_state: &DynamicState, board: &Board, inters: u64) -> Move {
+        let mut current_idx = 0;
+        let mut current_state = *root_state;
+
+        //selection
+        while self.nodes[current_idx as usize].untried_actions.is_empty()
+            && !self.nodes[current_idx as usize].children.is_empty() {
+            current_idx = self.get_best_move(current_idx, 1.0);
+
+            let current_move = self.nodes[current_idx].previous_move.unwrap();
+
+            let is_setup = !matches!(current_state.phase, GamePhase::NormalState);
+            current_state.apply_move(current_move, board, is_setup);
+        }
+
+        //expansion
+        if !current_state.is_game_over(board) {
+            if let Some(action) = self.nodes[current_idx].untried_actions.pop() {
+                let is_setup = !matches!(current_state.phase, GamePhase::NormalState);
+                current_state.apply_move(action, board, is_setup);
+
+                let mut new_child = Node::new(&current_state, board, Some(action));
+                new_child.parent = Some(current_idx);
+
+                let new_child_idx = self.nodes.len();
+                self.nodes.push(new_child);
+                self.nodes[current_idx].children.push(new_child_idx);
+
+                current_idx = new_child_idx;
+            }
+        }
+
+        //simulate
+        let score = simulate_random_game(current_state, board) as f64;
+
+        let mut mod_idx = Some(current_idx);
+        while let Some(idx) = mod_idx {
+            self.nodes[idx].visits += 1;
+            self.nodes[idx].current_score += score;
+            mod_idx = self.nodes[idx].parent;
+        }
+
+        let mut best_move = None;
+        let root = &self.nodes[0];
+        let mut most_visited = 0;
+
+        for &child_idx in &root.children {
+            let child = &self.nodes[child_idx];
+            if child.visits > most_visited {
+                most_visited = child.visits;
+                best_move = child.previous_move;
+            }
+        }
+
+        best_move.expect("Root has no children!")
+        
+    }
 
 }

@@ -47,19 +47,24 @@ fn main(){
     // graph.print();
     
     let board: Board = Board {graph: graph, convertors: convertors, edge_id: edgeIds, turns: days_vector};
-    let start_state = DynamicState::new();
+    let mut start_state = DynamicState::new();
 
     let start_time = Instant::now();
 
-    let total_points: u64 = (0..1_000_000)
-        .into_par_iter()
-        .map(|_| {simulate_random_game(start_state, &board) as u64})
-        .sum();
+    while !start_state.is_game_over(&board) {
+        let mut solver = MCTSearch::new(&start_state, &board);
+
+        let chosen_move  = solver.search(&start_state, &board, 1000);
+
+        let is_setup = !matches!(start_state.phase, GamePhase::NormalState);
+        start_state.apply_move(chosen_move, &board, is_setup);
+    }
 
     let fin = start_time.elapsed();
 
-    println!("Average: {}", total_points as f64 / 1_000_000.0);
+    println!("{}", start_state.get_points());
 
+    
     println!("Total time: {:?}", fin);
     println!("Time in milliseconds: {} ms", fin.as_millis());
     println!("Time in microseconds: {} µs", fin.as_micros());
